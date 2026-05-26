@@ -42,9 +42,11 @@
 // locals
 #include "settings.h"
 #include "RawKeyboard.h"
+#include "RawMouse.h"
 #include "layout_kb_profiles.h"   // for KeyboardLayout, layoutName, m_nKeyboardLayout
 
 extern RawKeyboard Keyboard;
+extern RawMouse Mouse;
 extern bool g_rawFastMode;   // defined in blue_keyboard.ino
 
 // TX and UI hooks implemented in blue_keyboard.ino / mtls.cpp
@@ -494,7 +496,33 @@ static bool handle_mtls_ops( uint8_t op, const uint8_t* p, uint16_t n )
 		// Pure fire-and-forget for maximum throughput.
 		return true;
 	}
-	
+
+	// :: RAW_MOUSE_EVENT (0xE1)
+	// Fire-and-forget mouse movement/click/scroll. MTLS-protected.
+	// Payload:
+	//    [buttons1][dx1][dy1][wheel1]  (len = 4)
+	// buttons: bit0=LEFT, bit1=RIGHT, bit2=MIDDLE
+	// dx, dy, wheel: signed bytes (-127 to +127)
+	if( op == 0xE1 )
+	{
+		if( n < 4 )
+		{
+			const char* e = "bad len";
+			sendFrame(0xFF, (const uint8_t*)e, (uint16_t)strlen(e));
+			return true;
+		}
+
+		uint8_t buttons = p[0];
+		int8_t  dx      = static_cast<int8_t>(p[1]);
+		int8_t  dy      = static_cast<int8_t>(p[2]);
+		int8_t  wheel   = static_cast<int8_t>(p[3]);
+
+		Mouse.move(buttons, dx, dy, wheel);
+
+		// NOTE: no ACK, fire-and-forget like 0xE0
+		return true;
+	}
+
 	// Not a known MTLS-protected opcode
 	return( false );
 }

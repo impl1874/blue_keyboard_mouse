@@ -45,6 +45,13 @@ public:
                   uint8_t mods = 0,
                   uint8_t repeat = 1);
 
+    // --mouse=buttons,dx,dy,wheel --to=...
+    bool send_mouse_event(const std::string& mac,
+                          uint8_t buttons,
+                          int8_t dx,
+                          int8_t dy,
+                          int8_t wheel);
+
 private:
     // INI handling
     IniFile m_ini;

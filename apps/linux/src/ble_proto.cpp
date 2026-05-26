@@ -913,4 +913,34 @@ bool BluKeySession::send_key(const string& mac,
     return send_key_impl(usage, mods, repeat);
 }
 
+bool BluKeySession::send_mouse_event(const std::string& mac,
+                                     uint8_t buttons,
+                                     int8_t dx,
+                                     int8_t dy,
+                                     int8_t wheel) {
+    vector<uint8_t> dummy_key;
+    if (!get_appkey_for_mac(mac, dummy_key)) {
+        cerr << "No APPKEY stored for " << mac
+             << " – provision the dongle first with --prov.\n";
+        return false;
+    }
+
+    auto b0 = connect_and_wait_b0(mac, nullptr, true);
+    if (b0.empty()) {
+        cerr << "Expected B0 for send_mouse_event()\n";
+        return false;
+    }
+    if (!do_mtls_handshake_from_b0(mac, b0)) {
+        return false;
+    }
+
+    vector<uint8_t> payload = {
+        buttons,
+        static_cast<uint8_t>(dx + 128),
+        static_cast<uint8_t>(dy + 128),
+        static_cast<uint8_t>(wheel + 128)
+    };
+    // 0xE1 is MTLS-protected, uses send_app_frame
+    return send_app_frame(0xE1, payload);
+}
 

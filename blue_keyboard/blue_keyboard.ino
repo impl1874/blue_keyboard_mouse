@@ -93,8 +93,11 @@ CRGB led[1];
 TFT_eSPI tft = TFT_eSPI();
 #endif
 
-// USB HID keyboard 
+// USB HID keyboard
 RawKeyboard Keyboard;
+
+// USB HID mouse
+RawMouse Mouse;
 
 // Consumer Control device used by RawKeyboard::sendConsumerUsage
 USBHIDConsumerControl MediaControl;
@@ -1023,18 +1026,20 @@ void setup()
     esp_reset_reason_t reason = esp_reset_reason();
     Serial.printf("\n=== BLUE_KEYBOARD boot ===\n[BOOT] reset reason = %d\n", (int)reason);	
 	
-	// USB HID   
+	// USB HID
 	USB.begin();
 	delay(200);
 	Keyboard.begin();
-	
+	Mouse.begin();    // USB HID Mouse
+
 #else
-	// USB HID first  
+	// USB HID first
 	USB.begin();
 	delay(200);
 	Keyboard.begin();
+	Mouse.begin();    // USB HID Mouse
 	MediaControl.begin();    // Consumer Control (media keys)
-	
+
 #endif
 	// just to clean up - comment after
 	//NimBLEDevice::deleteAllBonds();

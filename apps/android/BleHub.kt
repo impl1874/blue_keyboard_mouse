@@ -1696,6 +1696,75 @@ object BleHub
         }
     }
 
+    ////////////////////////////////////////////////////////////////////
+    // sendRawMouseEvent (0xE1)
+    //
+    // Send mouse movement/click/scroll via MTLS-protected frame.
+    // No ACK, fire-and-forget.
+    //
+    // Payload format:
+    //   [buttons1][dx1][dy1][wheel1]  (len = 4)
+    //   buttons: bit0=LEFT, bit1=RIGHT, bit2=MIDDLE
+    //   dx, dy, wheel: signed bytes (-127 to +127)
+    ////////////////////////////////////////////////////////////////////
+    fun sendRawMouseEvent(
+        buttons: Int,
+        dx: Int,
+        dy: Int,
+        wheel: Int,
+        onResult: (Boolean, String?) -> Unit
+    ) {
+        val addr = PreferencesUtil.getOutputDeviceId(appCtx)
+        if (addr.isNullOrBlank()) {
+            onResult(false, "No device selected")
+            return
+        }
+
+        val st = mtls
+        if (st?.sessKey == null) {
+            connectAndEstablishSecure { ok, err ->
+                if (!ok) {
+                    onResult(false, err)
+                } else {
+                    sendRawMouseEvent(buttons, dx, dy, wheel, onResult)
+                }
+            }
+            return
+        }
+
+        val dxb = dx.coerceIn(-127, 127).toByte()
+        val dyb = dy.coerceIn(-127, 127).toByte()
+        val wheelb = wheel.coerceIn(-127, 127).toByte()
+        val payload = byteArrayOf(
+            buttons.toByte(),
+            dxb,
+            dyb,
+            wheelb
+        )
+
+        // Use sendAppFrame (MTLS-wrapped) like 0xD0
+        sendAppFrame(0xE1, payload) { okW, errW ->
+            onResult(okW, errW)
+        }
+    }
+
+    // Convenience: click helpers
+    fun clickMouseLeft(onResult: (Boolean, String?) -> Unit) {
+        sendRawMouseEvent(0x01, 0, 0, 0, onResult)
+    }
+
+    fun clickMouseRight(onResult: (Boolean, String?) -> Unit) {
+        sendRawMouseEvent(0x02, 0, 0, 0, onResult)
+    }
+
+    fun clickMouseMiddle(onResult: (Boolean, String?) -> Unit) {
+        sendRawMouseEvent(0x04, 0, 0, 0, onResult)
+    }
+
+    fun scrollMouse(delta: Int, onResult: (Boolean, String?) -> Unit) {
+        sendRawMouseEvent(0, 0, 0, delta, onResult)
+    }
+
 	//////////////////////////////////////////
 	// Wait for B0 (server hello) after connect+notify.
 	// This is the only connect "ready" signal now.

@@ -427,6 +427,57 @@ final class BleHub: ObservableObject {
 		}
 	}
 
+	////////////////////////////////////////////////////////////////////
+	// sendRawMouseEvent (0xE1)
+	//
+	// Send mouse movement/click/scroll via MTLS-protected frame.
+	// No ACK, fire-and-forget.
+	//
+	// Payload format:
+	//   [buttons1][dx1][dy1][wheel1]  (len = 4)
+	//   buttons: bit0=LEFT, bit1=RIGHT, bit2=MIDDLE
+	//   dx, dy, wheel: signed bytes (-127 to +127)
+	////////////////////////////////////////////////////////////////////
+	func sendRawMouseEvent(buttons: Int, dx: Int, dy: Int, wheel: Int, _ cb: @escaping (Bool, String?) -> Void) {
+		enqueueCommand("sendRawMouseEvent") { finish in
+			self.ensureSecure(allowProvisioning: false) { okConn, errConn in
+				guard okConn else { cb(false, errConn); finish(); return }
+
+				let dxB = Int8(clamping: max(-127, min(127, dx)))
+				let dyB = Int8(clamping: max(-127, min(127, dy)))
+				let wheelB = Int8(clamping: max(-127, min(127, wheel)))
+				let payload = Data([
+					UInt8(buttons & 0xFF),
+					UInt8(bitPattern: dxB),
+					UInt8(bitPattern: dyB),
+					UInt8(bitPattern: wheelB)
+				])
+
+				self.sendAppFrame(op: 0xE1, payload: payload) { ok, err in
+					cb(ok, err)
+					finish()
+				}
+			}
+		}
+	}
+
+	// Convenience: click helpers
+	func clickMouseLeft(_ cb: @escaping (Bool, String?) -> Void) {
+		sendRawMouseEvent(buttons: 0x01, dx: 0, dy: 0, wheel: 0, cb)
+	}
+
+	func clickMouseRight(_ cb: @escaping (Bool, String?) -> Void) {
+		sendRawMouseEvent(buttons: 0x02, dx: 0, dy: 0, wheel: 0, cb)
+	}
+
+	func clickMouseMiddle(_ cb: @escaping (Bool, String?) -> Void) {
+		sendRawMouseEvent(buttons: 0x04, dx: 0, dy: 0, wheel: 0, cb)
+	}
+
+	func scrollMouse(delta: Int, _ cb: @escaping (Bool, String?) -> Void) {
+		sendRawMouseEvent(buttons: 0, dx: 0, dy: 0, wheel: delta, cb)
+	}
+
     // MARK: - Provisioning (APPKEY)
 
 	func provisionAppKey(password: String, timeoutMs: Int = 6000, _ cb: @escaping (Bool, String?) -> Void) {
